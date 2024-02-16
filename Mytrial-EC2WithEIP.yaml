@@ -1,0 +1,128 @@
+#This is my ec2 template with allocate Elastic IP address
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters: #Parameter Section
+  InstanceType:
+    Description: WebServer EC2 instance type (has default and allowed values)
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+      - t2.micro
+      - t2.small
+      - t2.medium
+      - m4.large
+      - m4.xlarge
+      - c7g.medium
+      - c7g.large
+      - c7g.xlarge
+    ConstraintDescription: Must be a valid EC2 instance type
+
+  DBPwd:
+    NoEcho: true
+    Description: The database admin account password ( won't be echoed)
+    Type: String
+
+  KeyName:
+    Description: Name of an existing EC2 Key Pair to enable SSH access
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: Must be the name of an existing EC2 Key Pair
+
+  AvailabilityZone:
+    Description: Give An Availability Zone
+    Type: AWS::EC2::AvailabilityZone::Name
+
+  #VolumeId: 
+   #Description: Give An Amazon EBS volume ID
+    #Type: AWS::EC2::Volume::Id
+
+  SecurityGroupId:
+    Description: Provide A security group ID
+    Type: AWS::EC2::SecurityGroup::Id
+
+  SecurityGroupName:
+    Description: An EC2-Classic or default VPC security group name
+    Type: AWS::EC2::SecurityGroup::GroupName
+
+  VPCId:
+    Description: Provide A VPC ID to operate in
+    Type: AWS::EC2::VPC::Id
+
+#Remark1 to refer to your Map you need 3 elements of the mapping: "Map Name", "Top Level Key", & "Second Level key"
+#Remark2: Syntax for to refer a map:!FindInMap [Map Name,Top Level Key,Second Level key]
+#Example here: !FindInMap [RegionMap,us-east-1,HVM64]
+
+Mappings: # Mapping Section
+  RegionMap: # This mapping Name ("RegionMap")
+    us-east-1: # This Top level key ("us-east-1")
+      "HVM64": "ami-0ff8a91507f77f867" # This second level key ("HVM64")
+    us-west-1: 
+      "HVM64": "ami-0bdb828fd58c52235"
+    us-west-2: # I will be using this one for my project as my Top Level Key
+      "HVM64": "ami-01e82af4e524a0aa3"  
+    eu-west-1: 
+      "HVM64": "ami-047bb4163c506cd98"
+    ap-southeast-1: 
+      "HVM64": "ami-08569b978cc4dfa10"
+    ap-northeast-1: 
+      "HVM64": "ami-06cd52961ce9f0d85"
+
+Resources: # Resource section
+  sakaEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !FindInMap [ RegionMap, "us-west-2", "HVM64" ] #ami-01e82af4e524a0aa3#  # Specify your desired AMI ID , have amazon Linux 2 for image
+      InstanceType: !Ref InstanceType  #"t1.micro"  # Specify your desired instance type
+      KeyName: myCloudformationkeypair  # Specify your key pair name for SSH access
+      #SecurityGroupId: !ImportValue SampleNetworkCrossStack-SecurityGroupID
+      #SecurityGroupIds:
+        #- !ImportValue
+            #SampleNetworkCrossStack-SecurityGroupID
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install -y httpd
+          systemctl start httpd
+          systemctl enable httpd
+          echo "<html><body><h1> West Coast is the Best Coast Website WebPage by SAKA RAHEEM  ${AWS::Region}</h1></body></html>" > /var/www/html/index.html
+      Tags: 
+        - Key: "Name"
+          Value: "Saka"
+  myEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      InstanceId: !Ref sakaEC2Instance
+
+Outputs:
+  RegionName:
+    Description: We would  like to return Region Name
+    Value: !Ref "AWS::Region"
+
+  StackName: 
+    Description: We would  like to return Stack Name
+    Value: !Ref "AWS::StackName"
+
+  AccountID: 
+    Description: We would  like to return Account ID
+    Value: !Ref "AWS::AccountId"
+
+  #SakaEC2InstancePrivateIP:
+    #Description: We would like to return The private IP address of the sakaEC2Instance
+    #Value: !GetAtt sakaEC2Instance.PrivateIp
+
+  #SakaEC2InstancePrivateDNS:
+    #Description: We would like to return The private DNS name of the sakaEC2Instance
+    #Value: !GetAtt sakaEC2Instance.PrivateDnsName
+
+
+
+
+
+
+#Outputs:
+  #StackVPC:
+   # Description: The ID of the VPC
+    #Value: !Ref MyVPC
+    #Export:
+      #Name: !Sub "${AWS::StackName}-VPCID" ---->This for Crossstack.
+  
